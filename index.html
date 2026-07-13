@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLCP · Visual Plume &amp; Emission Monitoring</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg-deep:#080B12;
+    --bg-panel:#111827;
+    --bg-panel-alt:#161F30;
+    --bg-raised:#1B2537;
+    --blue:#2C7BE0;
+    --blue-glow:#5AA6F5;
+    --amber:#E8A33D;
+    --green:#33D89A;
+    --red:#EF5A48;
+    --text:#E7ECF5;
+    --text-dim:#8CA0BC;
+    --text-faint:#5B6B85;
+    --border:#233049;
+    --border-soft:#1B2536;
+  }
+  html[data-theme="light"]{
+    --bg-deep:#F2F5FA;
+    --bg-panel:#FFFFFF;
+    --bg-panel-alt:#F0F3F9;
+    --bg-raised:#FFFFFF;
+    --blue:#2C7BE0;
+    --blue-glow:#1C63C7;
+    --amber:#B9791C;
+    --green:#189267;
+    --red:#D0402E;
+    --text:#121A26;
+    --text-dim:#57667E;
+    --text-faint:#8A97AC;
+    --border:#DEE4EE;
+    --border-soft:#E7ECF3;
+  }
+  html[data-theme="light"] .slot img{background:#E7ECF3;}
+  html[data-theme="light"] .brand-mark{color:#F4F8FF;}
+  html[data-theme="light"] .tag-ts, html[data-theme="light"] .tag-label{color:#fff;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(44,123,224,0.14), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(90,166,245,0.08), transparent 55%),
+      var(--bg-deep);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  ::selection{background:var(--blue);color:#fff;}
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .disp{font-family:'Barlow Condensed',sans-serif;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:20px 32px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, rgba(22,31,48,0.9), rgba(17,24,39,0.4));
+    position:relative;overflow:hidden;
+  }
+  .topbar::after{
+    content:"";position:absolute;right:120px;top:-40px;width:160px;height:160px;
+    background:radial-gradient(circle, rgba(90,166,245,0.18), transparent 70%);
+    filter:blur(4px);
+    animation:drift 9s ease-in-out infinite alternate;
+  }
+  @keyframes drift{ from{transform:translate(0,0) scale(1);} to{transform:translate(-30px,18px) scale(1.15);} }
+  .brand-block{display:flex;align-items:center;gap:14px;z-index:1;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:50%;
+    background:conic-gradient(from 220deg, var(--blue), var(--blue-glow), var(--blue));
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 3px rgba(44,123,224,0.15), 0 0 24px rgba(44,123,224,0.35);
+    font-family:'Barlow Condensed';font-weight:700;font-size:15px;color:#08111f;
+  }
+  .brand-text{line-height:1.15;}
+  .brand-text .eyebrow{font-size:10.5px;letter-spacing:.16em;color:var(--text-faint);text-transform:uppercase;}
+  .brand-text .name{font-family:'Barlow Condensed';font-weight:700;font-size:19px;letter-spacing:.03em;}
+  .title-block{z-index:1;}
+  .title-block h1{
+    font-family:'Barlow Condensed';font-weight:700;font-size:30px;letter-spacing:.01em;
+    margin:0;text-transform:uppercase;
+  }
+  .title-block .sub{color:var(--text-dim);font-size:12.5px;margin-top:2px;}
+  .clock-block{text-align:right;z-index:1;}
+  .clock-block .date{font-size:12px;color:var(--text-dim);letter-spacing:.04em;}
+  .clock-block .time{font-family:'JetBrains Mono';font-weight:600;font-size:24px;color:var(--blue-glow);}
+  .theme-toggle{
+    z-index:1;margin-left:22px;background:var(--bg-panel-alt);border:1px solid var(--border);
+    color:var(--text-dim);padding:8px 14px;border-radius:20px;font-size:12px;font-weight:600;
+    cursor:pointer;display:flex;align-items:center;gap:6px;font-family:'Inter';white-space:nowrap;
+  }
+  .theme-toggle:hover{border-color:var(--blue);color:var(--text);}
+
+  .wrap{max-width:1400px;margin:0 auto;padding:0 32px;}
+
+  /* ---------- Section label ---------- */
+  .section-head{display:flex;align-items:baseline;gap:10px;margin:34px 0 14px;}
+  .section-head .tag{
+    font-family:'JetBrains Mono';font-size:11px;color:var(--blue-glow);
+    border:1px solid rgba(90,166,245,0.35);padding:2px 8px;border-radius:3px;letter-spacing:.05em;
+  }
+  .section-head h2{font-family:'Barlow Condensed';font-weight:600;font-size:20px;margin:0;text-transform:uppercase;letter-spacing:.02em;color:var(--text);}
+  .section-head .rule{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
+
+  /* ---------- Gallery row (80/20) ---------- */
+  .gallery-row{display:flex;gap:18px;align-items:stretch;}
+  .gallery{
+    flex:0 0 58%;max-width:58%;
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:12px;
+  }
+  .slot{
+    position:relative;border-radius:7px;overflow:hidden;
+    background:var(--bg-panel-alt);border:1px solid var(--border-soft);
+    aspect-ratio:1/1;
+  }
+  .slot img{width:100%;height:100%;object-fit:contain;object-position:center;display:block;background:#05080D;}
+  .slot .empty{
+    text-align:center;color:var(--text-faint);font-size:13px;padding:20px;
+  }
+  .slot .empty .plus{
+    width:34px;height:34px;border-radius:50%;border:1.5px dashed var(--text-faint);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:18px;color:var(--text-dim);
+  }
+  .slot:hover .empty .plus{border-color:var(--blue-glow);color:var(--blue-glow);}
+  .slot .tag-ts{
+    position:absolute;left:8px;bottom:8px;font-family:'JetBrains Mono';font-size:11px;
+    background:rgba(8,11,18,0.72);padding:3px 7px;border-radius:3px;color:#F0D48A;letter-spacing:.02em;
+  }
+  .slot .tag-label{
+    position:absolute;left:8px;top:8px;font-family:'JetBrains Mono';font-size:10.5px;
+    background:rgba(44,123,224,0.85);padding:3px 7px;border-radius:3px;color:#fff;letter-spacing:.04em;
+  }
+  .slot .clear-btn{
+    position:absolute;right:8px;top:8px;width:22px;height:22px;border-radius:50%;
+    background:rgba(8,11,18,0.72);border:1px solid var(--border);color:var(--text-dim);
+    display:none;align-items:center;justify-content:center;font-size:13px;cursor:pointer;
+  }
+  .slot:hover .clear-btn{display:flex;}
+  .gallery-foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding-top:2px;}
+  .add-slot-btn{
+    font-family:'JetBrains Mono';font-size:11.5px;color:var(--blue-glow);background:transparent;
+    border:1px solid rgba(90,166,245,0.35);padding:6px 12px;border-radius:5px;cursor:pointer;
+  }
+  .add-slot-btn:hover{background:rgba(44,123,224,0.12);}
+  .coverage-note{font-size:11px;color:var(--text-faint);}
+
+  .sidebar{
+    flex:0 0 42%;max-width:42%;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .quickstats{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:14px;
+  }
+  .qstat{
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:9px;padding:16px 18px;
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  .qstat .label{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);}
+  .qstat .value{font-family:'Barlow Condensed';font-weight:700;font-size:28px;color:var(--text);margin-top:4px;}
+  .qstat .value small{font-family:'Inter';font-weight:500;font-size:13px;color:var(--text-dim);}
+  .qstat.hl .value{color:var(--blue-glow);}
+
+  /* ---------- Unit cards ---------- */
+  .units-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+  .units-row .common-card{grid-column:1/-1;}
+  .unit-card{
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:14px 15px 16px;
+  }
+  .unit-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+  .unit-head h3{font-family:'Barlow Condensed';font-weight:700;font-size:17px;margin:0;letter-spacing:.02em;}
+  .unit-head .badge{
+    font-family:'JetBrains Mono';font-size:9.5px;background:rgba(51,216,154,0.12);color:var(--green);
+    border:1px solid rgba(51,216,154,0.35);padding:2px 7px;border-radius:20px;
+  }
+  .kpi-strip{display:flex;gap:8px;margin-bottom:12px;}
+  .kpi{flex:1;background:var(--bg-panel-alt);border:1px solid var(--border-soft);border-radius:7px;padding:8px 9px;}
+  .kpi .l{font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;}
+  .kpi .v{font-family:'JetBrains Mono';font-weight:600;font-size:14.5px;color:var(--blue-glow);}
+  .field-grid{display:grid;grid-template-columns:1fr;gap:8px;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field label{font-size:10px;color:var(--text-dim);}
+  .field input, .field select{
+    background:var(--bg-panel-alt);border:1px solid var(--border-soft);border-radius:6px;
+    color:var(--text);padding:7px 9px;font-family:'JetBrains Mono';font-size:12px;width:100%;
+  }
+  .field input:focus, .field select:focus{outline:none;border-color:var(--blue);}
+  .field.wide{grid-column:1/-1;}
+
+  .common-card{
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px;
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .common-card h3{font-family:'Barlow Condensed';font-weight:700;font-size:19px;margin:0;}
+  .humidity-gauge{display:flex;align-items:center;gap:12px;}
+  .humidity-ring{
+    width:64px;height:64px;border-radius:50%;
+    background:conic-gradient(var(--blue) calc(var(--pct,87)*1%), var(--bg-panel-alt) 0);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .humidity-ring span{
+    width:50px;height:50px;border-radius:50%;background:var(--bg-panel);
+    display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-size:13px;color:var(--blue-glow);
+  }
+
+  /* ---------- Coal / mill row ---------- */
+  .lower-row{display:grid;grid-template-columns:0.85fr 1.15fr;gap:18px;margin-top:6px;}
+  .panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:18px 20px 20px;}
+  .panel h3{font-family:'Barlow Condensed';font-weight:700;font-size:19px;margin:0 0 4px;}
+  .panel .hint{font-size:11.5px;color:var(--text-faint);margin-bottom:14px;}
+  .upload-btn{
+    display:inline-flex;align-items:center;gap:8px;
+    background:linear-gradient(180deg, var(--blue), #1E5FB8);
+    color:#fff;border:none;padding:9px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;
+    box-shadow:0 4px 14px rgba(44,123,224,0.3);
+  }
+  .upload-btn:hover{filter:brightness(1.08);}
+  .file-name{font-family:'JetBrains Mono';font-size:11px;color:var(--text-dim);margin-left:10px;}
+  table.coal-table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12.5px;}
+  table.coal-table th{
+    text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);
+    border-bottom:1px solid var(--border);padding:6px 8px;
+  }
+  table.coal-table td{padding:7px 8px;border-bottom:1px solid var(--border-soft);font-family:'JetBrains Mono';}
+  table.coal-table tr:last-child td{border-bottom:none;}
+  .swatch{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;}
+
+  .mills-split{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+  .mill-col{padding:0 4px;}
+  .mill-col+.mill-col{border-left:1px solid var(--border-soft);padding-left:20px;margin-left:16px;}
+  .mill-col-head{
+    font-family:'Barlow Condensed';font-weight:600;font-size:13.5px;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--text-dim);margin-bottom:10px;
+  }
+  .mill-col .mill-grid{grid-template-columns:repeat(2,1fr);}
+
+  .mill-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .mill-btn{
+    background:var(--bg-panel-alt);border:1px solid var(--border-soft);border-radius:8px;
+    padding:10px 10px 9px;cursor:pointer;text-align:left;transition:border-color .15s;
+  }
+  .mill-btn.on{border-color:var(--green);background:rgba(51,216,154,0.07);}
+  .mill-btn .row1{display:flex;align-items:center;justify-content:space-between;}
+  .mill-btn .mid{font-family:'Barlow Condensed';font-weight:700;font-size:16px;}
+  .mill-btn .dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+  .mill-btn.on .dot{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .mill-btn select{
+    width:100%;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border-soft);color:var(--text-dim);
+    font-size:11px;padding:4px 5px;border-radius:5px;font-family:'JetBrains Mono';
+  }
+  .mill-btn .cap{display:flex;align-items:center;gap:5px;margin-top:5px;}
+  .mill-btn .cap input{
+    width:52px;background:var(--bg-panel);border:1px solid var(--border-soft);color:var(--text-dim);
+    font-size:11px;padding:3px 5px;border-radius:5px;font-family:'JetBrains Mono';
+  }
+  .mill-btn .cap span{font-size:10px;color:var(--text-faint);}
+
+  .blend-bar{display:flex;height:16px;border-radius:4px;overflow:hidden;margin:12px 0 8px;border:1px solid var(--border-soft);}
+  .blend-bar .seg{display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono';font-size:9.5px;color:#08111f;font-weight:600;transition:width .3s;}
+  .blend-legend{display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--text-dim);margin-bottom:10px;}
+  .calc-formula{
+    font-size:11px;color:var(--text-faint);background:var(--bg-panel-alt);border:1px solid var(--border-soft);
+    border-radius:6px;padding:8px 10px;margin-bottom:14px;line-height:1.7;
+  }
+  .calc-formula .hl{color:var(--blue-glow);}
+  .blend-result-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .apply-btn{
+    background:transparent;border:1px solid rgba(51,216,154,0.4);color:var(--green);
+    padding:7px 13px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'Inter';font-weight:500;
+  }
+  .apply-btn:hover{background:rgba(51,216,154,0.1);}
+  .calc-readout{display:flex;gap:16px;}
+  .calc-readout div{text-align:left;}
+  .calc-readout .l{font-size:9.5px;color:var(--text-faint);text-transform:uppercase;}
+  .calc-readout .v{font-family:'JetBrains Mono';font-weight:600;font-size:17px;color:var(--blue-glow);}
+
+  @media (max-width:980px){
+    .gallery-row{flex-direction:column;}
+    .gallery,.sidebar{flex:1 1 100%;max-width:100%;}
+    .units-row{grid-template-columns:1fr;}
+    .lower-row{grid-template-columns:1fr;}
+    .mill-grid{grid-template-columns:repeat(2,1fr);}
+    .mills-split{grid-template-columns:1fr;gap:20px;}
+    .mill-col+.mill-col{border-left:none;padding-left:0;margin-left:0;border-top:1px solid var(--border-soft);padding-top:16px;}
+    .quickstats{grid-template-columns:1fr 1fr;}
+    .title-block h1{font-size:22px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand-block">
+    <div class="brand-mark">BP</div>
+    <div class="brand-text">
+      <div class="eyebrow">BLCP Power</div>
+      <div class="name">Environmental Ops</div>
+    </div>
+  </div>
+  <div class="title-block">
+    <h1>Visual Plume &amp; Emission Monitoring</h1>
+    <div class="sub">Stack camera review · coal blend &amp; K-factor calculator</div>
+  </div>
+  <div style="display:flex;align-items:center;z-index:1;">
+    <div class="clock-block">
+      <div class="date" id="dateStr">—</div>
+      <div class="time mono" id="timeStr">--:--</div>
+    </div>
+    <button type="button" class="theme-toggle" id="themeToggle">🌙 Dark mode</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="section-head">
+    <span class="tag">01 · CAMERA</span>
+    <h2>Stack Visual Log</h2>
+    <div class="rule"></div>
+    <span class="coverage-note">Unit readouts pinned to the right of the photos</span>
+  </div>
+
+  <div class="gallery-row">
+    <div class="gallery" id="gallery"></div>
+    <aside class="sidebar">
+      <div class="section-head" style="margin:0 0 2px;">
+        <span class="tag">02 · UNITS</span>
+        <h2>Unit Emission Readouts</h2>
+        <div class="rule"></div>
+      </div>
+      <div class="units-row" id="unitsRow"></div>
+    </aside>
+  </div>
+
+  <div class="section-head">
+    <span class="tag">03 · FUEL</span>
+    <h2>Coal Properties &amp; Mill Blending</h2>
+    <div class="rule"></div>
+  </div>
+
+  <div class="lower-row">
+    <div class="panel">
+      <h3>Coal Properties File</h3>
+      <div class="hint">Upload a .xlsx / .csv with columns: Coal Type, K Factor, Ash % (ar), SO2 (%) ar</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <label class="upload-btn">
+          ⤒ Upload Excel / CSV
+          <input type="file" id="coalFileInput" accept=".csv,.xlsx,.xls" hidden>
+        </label>
+        <label class="upload-btn" style="background:linear-gradient(180deg,#3A4A66,#26364F);box-shadow:none;">
+          ⤒ Upload photo (PNG/JPG)
+          <input type="file" id="coalImageInput" accept="image/*" hidden>
+        </label>
+      </div>
+      <span class="file-name" id="coalFileName">no file loaded — using default library</span>
+      <table class="coal-table" id="coalTable"></table>
+    </div>
+
+    <div class="panel">
+      <h3>Operating Mills</h3>
+      <div class="hint">Toggle mills on/off per unit — each unit's blend automatically drives its own K factor / Ash % (ar)</div>
+      <div class="mills-split">
+        <div class="mill-col">
+          <div class="mill-col-head">Unit 1 Mills</div>
+          <div class="mill-grid" id="millGrid1"></div>
+          <div class="blend-bar" id="blendBar1"></div>
+          <div class="blend-legend" id="blendLegend1"></div>
+          <div class="calc-formula mono" id="calcFormula1"></div>
+          <div class="calc-readout" id="calcReadout1">
+            <div><div class="l">K factor</div><div class="v" id="calcK1">–</div></div>
+            <div><div class="l">Ash % (ar)</div><div class="v" id="calcAsh1">–</div></div>
+          </div>
+        </div>
+        <div class="mill-col">
+          <div class="mill-col-head">Unit 2 Mills</div>
+          <div class="mill-grid" id="millGrid2"></div>
+          <div class="blend-bar" id="blendBar2"></div>
+          <div class="blend-legend" id="blendLegend2"></div>
+          <div class="calc-formula mono" id="calcFormula2"></div>
+          <div class="calc-readout" id="calcReadout2">
+            <div><div class="l">K factor</div><div class="v" id="calcK2">–</div></div>
+            <div><div class="l">Ash % (ar)</div><div class="v" id="calcAsh2">–</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <span class="tag">04 · SUMMARY</span>
+    <h2>K Factor / Ash % (ar) Overview</h2>
+    <div class="rule"></div>
+  </div>
+
+  <div class="quickstats" id="quickstats"></div>
+
+</div>
+
+<script>
+/* ============ CLOCK ============ */
+function pad(n){return n.toString().padStart(2,'0');}
+function updateClock(){
+  const d = new Date();
+  document.getElementById('dateStr').textContent = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+  document.getElementById('timeStr').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} hr.`;
+}
+updateClock(); setInterval(updateClock,1000);
+
+/* ============ THEME ============ */
+let currentTheme = 'dark';
+function applyTheme(t){
+  currentTheme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeToggle').textContent = t==='light' ? '☀️ Light mode' : '🌙 Dark mode';
+}
+document.getElementById('themeToggle').addEventListener('click', ()=>{
+  applyTheme(currentTheme==='dark' ? 'light' : 'dark');
+});
+applyTheme('dark');
+
+/* ============ STATE ============ */
+const coalColors = ['#5AA6F5','#E8A33D','#33D89A','#EF5A48','#C77DFF','#4DD0E1'];
+let coalDB = {
+  'HV2602': {k:12.5, ash:15.0, so2:0.45},
+  'HV2610': {k:12.0, ash:16.2, so2:0.60},
+};
+
+let millsByUnit = {
+  1: [
+    {id:'A', coal:'HV2602', cap:20, on:true},
+    {id:'B', coal:'HV2602', cap:20, on:true},
+    {id:'C', coal:'HV2610', cap:20, on:true},
+    {id:'D', coal:'HV2602', cap:20, on:true},
+    {id:'E', coal:'HV2610', cap:20, on:false},
+    {id:'F', coal:'HV2602', cap:20, on:true},
+  ],
+  2: [
+    {id:'A', coal:'HV2602', cap:20, on:true},
+    {id:'B', coal:'HV2602', cap:20, on:true},
+    {id:'C', coal:'HV2610', cap:20, on:true},
+    {id:'D', coal:'HV2602', cap:20, on:true},
+    {id:'E', coal:'HV2610', cap:20, on:false},
+    {id:'F', coal:'HV2602', cap:20, on:true},
+  ],
+};
+
+let units = {
+  1: {kfactor:12.40, ash:15.24, fgdBias:0, particulate:10.1, sox:130.8, nox:171.2, temp:72.5, coalMix:'80%HV2602+20%HV2610', soot:'-', fgdlg:11.51},
+  2: {kfactor:12.40, ash:15.24, fgdBias:0, particulate:11.7, sox:126.7, nox:162.4, temp:69.1, coalMix:'80%HV2602+20%HV2610', soot:'-', fgdlg:11.56},
+};
+let humidity = 87;
+let gallerySlots = [
+  {label:'Unit 1 · Stack', url:null},
+  {label:'Unit 1 · Wide', url:null},
+  {label:'Unit 2 · Stack', url:null},
+  {label:'Unit 2 · Wide', url:null},
+];
+
+/* ============ GALLERY ============ */
+function readFileAsDataURL(file){
+  return new Promise((resolve, reject)=>{
+    const r = new FileReader();
+    r.onload = ()=> resolve(r.result);
+    r.onerror = ()=> reject(new Error('read failed'));
+    r.readAsDataURL(file);
+  });
+}
+
+function renderGallery(){
+  const g = document.getElementById('gallery');
+  g.innerHTML = '';
+  gallerySlots.forEach((slot, idx)=>{
+    const el = document.createElement('div');
+    el.className = 'slot';
+    const inner = slot.url ? `
+        <img src="${slot.url}">
+        <div class="tag-label">${slot.label}</div>
+      ` : `
+        <div class="empty">
+          <div class="plus">+</div>
+          Upload photo<br>${slot.label}
+        </div>`;
+    el.innerHTML = `
+      <label class="slot-trigger" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+        <input type="file" accept="image/*" hidden data-idx="${idx}" class="slot-input">
+        ${inner}
+      </label>
+      ${slot.url ? `<button type="button" class="clear-btn" data-idx="${idx}" title="Remove">✕</button>` : ''}
+    `;
+    g.appendChild(el);
+  });
+
+  g.querySelectorAll('.slot-input').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = inp.dataset.idx;
+      const file = inp.files && inp.files[0];
+      if(!file) return;
+      try{
+        const dataUrl = await readFileAsDataURL(file);
+        const d = new Date();
+        gallerySlots[idx].url = dataUrl;
+        gallerySlots[idx].ts = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        renderGallery();
+      }catch(err){
+        console.error(err);
+      }
+    });
+  });
+  g.querySelectorAll('.clear-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault(); e.stopPropagation();
+      gallerySlots[btn.dataset.idx].url = null;
+      renderGallery();
+    });
+  });
+
+  const foot = document.createElement('div');
+  foot.className = 'gallery-foot';
+  foot.innerHTML = `<button class="add-slot-btn" id="addSlotBtn">+ Add photo slot</button><span class="coverage-note">${gallerySlots.filter(s=>s.url).length}/${gallerySlots.length} loaded</span>`;
+  g.appendChild(foot);
+  document.getElementById('addSlotBtn').addEventListener('click', ()=>{
+    gallerySlots.push({label:`View ${gallerySlots.length+1}`, url:null});
+    renderGallery();
+  });
+}
+
+/* ============ QUICKSTATS ============ */
+function renderQuickstats(){
+  const q = document.getElementById('quickstats');
+  const allMills = [...millsByUnit[1], ...millsByUnit[2]];
+  q.innerHTML = `
+    <div class="qstat hl"><div class="label">Unit 1 K-factor / Ash%(ar)</div><div class="value">${units[1].kfactor.toFixed(2)} <small>/ ${units[1].ash.toFixed(2)}%</small></div></div>
+    <div class="qstat hl"><div class="label">Unit 2 K-factor / Ash%(ar)</div><div class="value">${units[2].kfactor.toFixed(2)} <small>/ ${units[2].ash.toFixed(2)}%</small></div></div>
+    <div class="qstat"><div class="label">Ambient humidity</div><div class="value">${humidity}<small>%</small></div></div>
+    <div class="qstat"><div class="label">Mills operating</div><div class="value">${allMills.filter(m=>m.on).length}<small>/ ${allMills.length}</small></div></div>
+  `;
+}
+
+/* ============ UNIT CARDS ============ */
+function unitFieldRow(u, key, label, unit=''){
+  return `<div class="field"><label>${label}${unit?` (${unit})`:''}</label><input type="number" step="0.01" data-unit="${u}" data-key="${key}" value="${units[u][key]}"></div>`;
+}
+function renderUnits(){
+  const row = document.getElementById('unitsRow');
+  row.innerHTML = `
+    ${[1,2].map(u=>`
+      <div class="unit-card">
+        <div class="unit-head"><h3>Unit ${u}</h3><span class="badge">● online</span></div>
+        <div class="kpi-strip">
+          <div class="kpi"><div class="l">K factor avg</div><div class="v" id="u${u}kfactor">${units[u].kfactor.toFixed(2)}</div></div>
+          <div class="kpi"><div class="l">Ash % (ar) avg</div><div class="v" id="u${u}ash">${units[u].ash.toFixed(2)}</div></div>
+        </div>
+        <div class="field-grid">
+          ${unitFieldRow(u,'fgdBias','FGD Bias','%')}
+          ${unitFieldRow(u,'particulate','Particulate','mg/Nm³')}
+          ${unitFieldRow(u,'sox','SOx','ppm')}
+          ${unitFieldRow(u,'nox','NOx','ppm')}
+          ${unitFieldRow(u,'temp','Stack flue gas temp','°C')}
+          ${unitFieldRow(u,'fgdlg','FGD L/G','%')}
+          <div class="field wide"><label>Coal burning with</label><input type="text" data-unit="${u}" data-key="coalMix" value="${units[u].coalMix}"></div>
+        </div>
+      </div>`).join('')}
+    <div class="common-card">
+      <h3>Common</h3>
+      <div class="humidity-gauge">
+        <div class="humidity-ring" style="--pct:${humidity}"><span class="mono">${humidity}%</span></div>
+        <div>
+          <div style="font-size:11px;color:var(--text-dim);">Ambient Humidity</div>
+          <input type="number" id="humidityInput" value="${humidity}" style="margin-top:6px;width:80px;background:var(--bg-panel-alt);border:1px solid var(--border-soft);color:var(--text);padding:6px 8px;border-radius:6px;font-family:'JetBrains Mono';">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-faint);line-height:1.5;">
+        Fields above are editable manual entries pending DCS integration. K-factor / Ash%(ar) readouts are wired to the mill blend calculator on the right.
+      </div>
+    </div>
+  `;
+  row.querySelectorAll('input[data-unit]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const u = inp.dataset.unit, key = inp.dataset.key;
+      units[u][key] = inp.type==='number' ? parseFloat(inp.value||0) : inp.value;
+      if(key==='kfactor' || key==='ash'){ renderQuickstats(); }
+      document.getElementById(`u${u}kfactor`).textContent = units[u].kfactor.toFixed(2);
+      document.getElementById(`u${u}ash`).textContent = units[u].ash.toFixed(2);
+    });
+  });
+  document.getElementById('humidityInput').addEventListener('input', (e)=>{
+    humidity = parseFloat(e.target.value||0);
+    renderUnits(); renderQuickstats();
+  });
+}
+
+/* ============ COAL TABLE ============ */
+function renderCoalTable(){
+  const t = document.getElementById('coalTable');
+  const names = Object.keys(coalDB);
+  t.innerHTML = `
+    <tr><th>Coal Type</th><th>K Factor</th><th>Ash % (ar)</th><th>SO2 (%) ar</th></tr>
+    ${names.map((n,i)=>`<tr><td><span class="swatch" style="background:${coalColors[i%coalColors.length]}"></span>${n}</td><td>${coalDB[n].k.toFixed(2)}</td><td>${coalDB[n].ash.toFixed(2)}</td><td>${(coalDB[n].so2||0).toFixed(2)}</td></tr>`).join('')}
+  `;
+}
+
+function parseCSVText(text){
+  const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
+  if(!lines.length) return [];
+  const headers = lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line=>{
+    const cells = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+    const obj = {};
+    headers.forEach((h,i)=> obj[h] = cells[i] ?? '');
+    return obj;
+  });
+}
+
+function rowsToCoalDB(rows){
+  const newDB = {};
+  rows.forEach(r=>{
+    const keys = Object.keys(r);
+    const nameKey = keys.find(k=>/coal|type|name/i.test(k));
+    const kKey = keys.find(k=>/k[\s_-]?factor/i.test(k));
+    // Prefer an explicit "as received" (ar) ash column; fall back to a generic ash column only if no ar-specific one exists.
+    const ashArKey = keys.find(k=>/ash/i.test(k) && /\bar\b|\(ar\)|_ar\b/i.test(k));
+    const ashKey = ashArKey || keys.find(k=>/ash/i.test(k));
+    // Same "ar"-first preference for SO2.
+    const so2ArKey = keys.find(k=>/so2|sulf?ur/i.test(k) && /\bar\b|\(ar\)|_ar\b/i.test(k));
+    const so2Key = so2ArKey || keys.find(k=>/so2|sulf?ur/i.test(k));
+    if(nameKey && r[nameKey] !== ''){
+      newDB[r[nameKey]] = {
+        k: parseFloat(r[kKey]) || 0,
+        ash: parseFloat(r[ashKey]) || 0,
+        so2: parseFloat(r[so2Key]) || 0,
+      };
+    }
+  });
+  return newDB;
+}
+
+function applyNewCoalDB(newDB, statusEl, fileName){
+  if(Object.keys(newDB).length){
+    coalDB = newDB;
+    const names = Object.keys(coalDB);
+    [1,2].forEach(u=> millsByUnit[u].forEach((m,i)=>{ if(!coalDB[m.coal]) m.coal = names[i % names.length]; }));
+    renderCoalTable(); renderMills(1); renderMills(2);
+    statusEl.textContent = `${fileName} — loaded ${Object.keys(newDB).length} coal type(s)`;
+  } else {
+    statusEl.textContent = `${fileName} — no rows found. Check columns: Coal Type, K Factor, Ash % (ar)`;
+  }
+}
+
+document.getElementById('coalFileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const statusEl = document.getElementById('coalFileName');
+  statusEl.textContent = `Reading ${file.name}…`;
+  const isCSV = /\.csv$/i.test(file.name) || file.type === 'text/csv';
+
+  if(isCSV){
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      try{
+        const rows = parseCSVText(evt.target.result);
+        applyNewCoalDB(rowsToCoalDB(rows), statusEl, file.name);
+      }catch(err){
+        console.error(err);
+        statusEl.textContent = `Could not read ${file.name} as CSV.`;
+      }
+    };
+    reader.onerror = ()=>{ statusEl.textContent = `Could not open ${file.name}.`; };
+    reader.readAsText(file);
+  } else {
+    if(typeof XLSX === 'undefined'){
+      statusEl.textContent = `Excel reader didn't load in this preview — please save the file as .csv and upload again.`;
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (evt)=>{
+      try{
+        const wb = XLSX.read(evt.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+        applyNewCoalDB(rowsToCoalDB(rows), statusEl, file.name);
+      }catch(err){
+        console.error(err);
+        statusEl.textContent = `Could not parse ${file.name}. Check columns: Coal Type, K Factor, Ash % (ar)`;
+      }
+    };
+    reader.onerror = ()=>{ statusEl.textContent = `Could not open ${file.name}.`; };
+    reader.readAsArrayBuffer(file);
+  }
+});
+
+document.getElementById('coalImageInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const nameLbl = document.getElementById('coalFileName');
+  nameLbl.textContent = `Reading "${file.name}" with AI…`;
+  try{
+    const base64 = await new Promise((res, rej)=>{
+      const r = new FileReader();
+      r.onload = ()=> res(r.result.split(',')[1]);
+      r.onerror = ()=> rej(new Error('read failed'));
+      r.readAsDataURL(file);
+    });
+    const mediaType = file.type || 'image/png';
+
+    let response;
+    try{
+      response = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'claude-sonnet-4-6',
+          max_tokens:1000,
+          messages:[{
+            role:'user',
+            content:[
+              {type:'image', source:{type:'base64', media_type:mediaType, data:base64}},
+              {type:'text', text:'This image shows a coal properties table. Extract the coal type name, K factor, Ash % and SO2 % — all on an AS-RECEIVED (ar) basis specifically — ignore any ad (air-dried) or db (dry-basis) columns if an ar column is present. Respond with ONLY a raw JSON array, no markdown fences, no prose, in this exact shape: [{"name":"HV2602","k":12.5,"ash":15.0,"so2":0.45}, ...] where ash and so2 are the ar values. If a value is unreadable, omit that field or row.'}
+            ]
+          }]
+        })
+      });
+    }catch(networkErr){
+      nameLbl.textContent = `AI photo-reading isn't available outside the Claude.ai preview — please upload a .csv instead.`;
+      return;
+    }
+
+    if(!response.ok){
+      nameLbl.textContent = `AI photo-reading isn't available right now (status ${response.status}) — please upload a .csv instead.`;
+      return;
+    }
+
+    const rawText = await response.text();
+    if(!rawText || !rawText.trim()){
+      nameLbl.textContent = `AI photo-reading isn't available outside the Claude.ai preview — please upload a .csv instead.`;
+      return;
+    }
+
+    let data;
+    try{
+      data = JSON.parse(rawText);
+    }catch(parseErr){
+      nameLbl.textContent = `Got an unreadable response from the AI reader — please upload a .csv instead.`;
+      return;
+    }
+
+    const textBlock = (data.content || []).map(c=>c.text||'').join('\n');
+    const clean = textBlock.replace(/```json|```/g,'').trim();
+    if(!clean){
+      nameLbl.textContent = `The AI reader didn't return any table data — try a clearer photo or a .csv file.`;
+      return;
+    }
+    const rows = JSON.parse(clean);
+    const newDB = {};
+    rows.forEach(r=>{
+      if(r.name){ newDB[r.name] = {k: parseFloat(r.k)||0, ash: parseFloat(r.ash)||0, so2: parseFloat(r.so2)||0}; }
+    });
+    if(Object.keys(newDB).length){
+      coalDB = newDB;
+      const names = Object.keys(coalDB);
+      [1,2].forEach(u=> millsByUnit[u].forEach((m,i)=>{ if(!coalDB[m.coal]) m.coal = names[i % names.length]; }));
+      renderCoalTable(); renderMills(1); renderMills(2);
+      nameLbl.textContent = `${file.name} — read ${Object.keys(newDB).length} coal type(s) via AI`;
+    } else {
+      nameLbl.textContent = `Could not find a readable table in "${file.name}"`;
+    }
+  }catch(err){
+    console.error(err);
+    nameLbl.textContent = `Couldn't read "${file.name}" — try a clearer photo or use Excel/CSV instead`;
+  }
+});
+
+/* ============ MILLS & BLEND (per unit) ============ */
+function computeBlend(unit){
+  const active = millsByUnit[unit].filter(m=>m.on && coalDB[m.coal]);
+  const total = active.reduce((s,m)=>s+m.cap,0);
+  const byType = {};
+  active.forEach(m=>{ byType[m.coal] = (byType[m.coal]||0) + m.cap; });
+  const ratios = Object.entries(byType).map(([name,cap])=>({name, pct: total? (cap/total*100):0}));
+  ratios.sort((a,b)=>b.pct-a.pct);
+  let k=0, ash=0;
+  ratios.forEach(r=>{ k += (r.pct/100) * (coalDB[r.name]?.k||0); ash += (r.pct/100) * (coalDB[r.name]?.ash||0); });
+  return {ratios, k, ash, total};
+}
+
+function renderMills(unit){
+  const g = document.getElementById(`millGrid${unit}`);
+  const names = Object.keys(coalDB);
+  const mills = millsByUnit[unit];
+  g.innerHTML = mills.map((m,i)=>`
+    <div class="mill-btn ${m.on?'on':''}" data-idx="${i}">
+      <div class="row1"><span class="mid">Mill ${m.id}</span><span class="dot"></span></div>
+      <select data-idx="${i}" data-field="coal">
+        ${names.map(n=>`<option value="${n}" ${n===m.coal?'selected':''}>${n}</option>`).join('')}
+      </select>
+      <div class="cap"><input type="number" data-idx="${i}" data-field="cap" value="${m.cap}"><span>t/h</span></div>
+    </div>
+  `).join('');
+
+  g.querySelectorAll('.mill-btn').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      if(e.target.tagName==='SELECT' || e.target.tagName==='INPUT') return;
+      const idx = btn.dataset.idx;
+      mills[idx].on = !mills[idx].on;
+      renderMills(unit); renderBlend(unit); renderQuickstats();
+    });
+  });
+  g.querySelectorAll('select[data-field="coal"]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{ mills[sel.dataset.idx].coal = sel.value; renderBlend(unit); });
+  });
+  g.querySelectorAll('input[data-field="cap"]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{ mills[inp.dataset.idx].cap = parseFloat(inp.value||0); renderBlend(unit); });
+    inp.addEventListener('click', e=>e.stopPropagation());
+  });
+
+  renderBlend(unit);
+}
+
+function renderBlend(unit){
+  const {ratios, k, ash} = computeBlend(unit);
+  const names = Object.keys(coalDB);
+  const bar = document.getElementById(`blendBar${unit}`);
+  bar.innerHTML = ratios.map(r=>{
+    const color = coalColors[names.indexOf(r.name)%coalColors.length];
+    return `<div class="seg" style="width:${r.pct}%;background:${color};">${r.pct>=8?r.pct.toFixed(0)+'%':''}</div>`;
+  }).join('');
+  const legend = document.getElementById(`blendLegend${unit}`);
+  legend.innerHTML = ratios.map(r=>{
+    const color = coalColors[names.indexOf(r.name)%coalColors.length];
+    return `<span><span class="swatch" style="background:${color}"></span>${r.pct.toFixed(1)}% ${r.name}</span>`;
+  }).join('') || '<span>No mills operating</span>';
+  document.getElementById(`calcK${unit}`).textContent = k? k.toFixed(2) : '–';
+  document.getElementById(`calcAsh${unit}`).textContent = ash? ash.toFixed(2)+'%' : '–';
+
+  const formulaEl = document.getElementById(`calcFormula${unit}`);
+  if(ratios.length){
+    const kTerms = ratios.map(r=>`${(r.pct/100).toFixed(2)}×${(coalDB[r.name]?.k||0).toFixed(2)}`).join(' + ');
+    const aTerms = ratios.map(r=>`${(r.pct/100).toFixed(2)}×${(coalDB[r.name]?.ash||0).toFixed(2)}`).join(' + ');
+    formulaEl.innerHTML = `K = ${kTerms} = <span class="hl">${k.toFixed(2)}</span><br>Ash(ar) = ${aTerms} = <span class="hl">${ash.toFixed(2)}%</span>`;
+  } else {
+    formulaEl.textContent = 'No active mills — turn on at least one mill to compute the blend.';
+  }
+
+  // Live-apply this unit's mill blend straight to its K factor / Ash%(ar) card
+  if(ratios.length){
+    units[unit].kfactor = k;
+    units[unit].ash = ash;
+    units[unit].coalMix = ratios.map(r=>`${r.pct.toFixed(0)}%${r.name}`).join('+');
+    renderUnits(); renderQuickstats();
+  }
+}
+
+/* ============ INIT ============ */
+renderGallery();
+renderQuickstats();
+renderUnits();
+renderCoalTable();
+renderMills(1);
+renderMills(2);
+</script>
+</body>
+</html>
